@@ -236,15 +236,43 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxP6oIXbPf6pX2QA4WlBoci
 
 let listadoCache = [];
 let numerosSms = { mza: '', nqn: '' };
+let formatosBaja = { mza: '', nqn: '' };
 
 async function cargarConfiguracion() {
   try {
     const data = await apiGet({ action: 'contadores' });
     numerosSms.mza = data.numeroSmsMza || '';
     numerosSms.nqn = data.numeroSmsNqn || '';
+    formatosBaja.mza = data.formatoBajaMza || '';
+    formatosBaja.nqn = data.formatoBajaNqn || '';
   } catch (err) {
     console.warn('No se pudo leer Contadores', err);
   }
+}
+
+// Arma, del lado del cliente, la linea de SMS de baja para un chofer ya en cache,
+// usando el formato leido de Contadores (ej. "1234,BTL,{ID}"). Se usa para poder
+// abrir la app de mensajes DENTRO del mismo click de "Si, dar de baja" (sin esperar
+// la respuesta del servidor), porque el navegador solo deja abrir un enlace sms:
+// como continuacion directa de un toque del usuario; si se abre despues de un
+// await, muchos celulares lo bloquean en silencio.
+function lineasBajaCliente(c) {
+  const out = { mza: '', nqn: '' };
+  if (c.idMza && formatosBaja.mza) out.mza = formatosBaja.mza.replace('{ID}', c.idMza);
+  if (c.idNqn && formatosBaja.nqn) out.nqn = formatosBaja.nqn.replace('{ID}', c.idNqn);
+  return out;
+}
+
+// Si el chofer tiene un solo porton con formato de baja configurado, abre el SMS
+// ya mismo (gesto del usuario intacto). Si tiene los dos (ej. supervision con
+// acceso a ambos portones), no abrimos ninguno solo: se manda uno atras del otro
+// y el segundo pisaria al primero, asi que en ese caso queda el flujo manual de
+// siempre (boton "Enviar SMS" por cada porton en la tarjeta de confirmacion).
+function abrirSmsBajaSiCorresponde(c) {
+  const l = lineasBajaCliente(c);
+  if (l.mza && !l.nqn) { abrirSms(numerosSms.mza, l.mza); return true; }
+  if (l.nqn && !l.mza) { abrirSms(numerosSms.nqn, l.nqn); return true; }
+  return false;
 }
 cargarConfiguracion();
 
@@ -566,6 +594,9 @@ function cancelarBajaListado(uid) {
 async function confirmarBajaListado(uid) {
   const motivoEl = document.getElementById('motivoListado-' + uid);
   const motivo = motivoEl ? motivoEl.value.trim() : '';
+  const c0 = buscarEnCache(uid);
+  // Abrir el SMS ACA, antes del await, para no perder el gesto del usuario (el click en "Si, dar de baja").
+  if (c0) abrirSmsBajaSiCorresponde(c0);
   try {
     const data = await apiGet({ action: 'baja', uid, motivo });
     const c = buscarEnCache(uid);
@@ -693,6 +724,9 @@ function darDeAltaListadoTabla(uid, campo, numero, linea) {
 
 function bajaListadoTabla(uid, nombreCompleto) {
   if (!confirm('¿Confirmas dar de baja a ' + nombreCompleto + '? Esta accion desactiva sus portones.')) return;
+  const c0 = buscarEnCache(uid);
+  // Abrir el SMS ACA, apenas se confirma el dialogo nativo, para no perder el gesto del usuario.
+  if (c0) abrirSmsBajaSiCorresponde(c0);
   confirmarBajaListadoDirecta(uid);
 }
 
