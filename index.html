@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Altas y Bajas - Portones</title>
+<style>
+  :root{
+    --R:#C00000; --N:#1a1a1a; --BG:#f4f5f7; --BO:#e0e2e8; --GT:#6b7280;
+    --G:#1D9E75; --A:#EF9F27; --O:#E07B39; --B:#378ADD;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--BG); color:var(--N);
+    font-family:Calibri,"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+    font-size:16px;
+  }
+  header{
+    position:sticky; top:0; z-index:20; height:52px; background:var(--N);
+    box-shadow:0 2px 8px rgba(0,0,0,.3);
+    display:flex; align-items:center; gap:12px; padding:0 14px;
+  }
+  .badge{
+    background:var(--R); color:#fff; font-weight:700; font-size:12px;
+    letter-spacing:1.5px; padding:6px 10px; border-radius:2px;
+  }
+  header h1{color:#fff; font-size:15px; font-weight:600; margin:0; flex:1;}
+  #btnVolver{
+    background:rgba(255,255,255,.12); color:#fff; border:none; border-radius:4px;
+    width:32px; height:32px; font-size:18px; cursor:pointer; display:none;
+  }
+  main{max-width:520px; margin:0 auto; padding:18px 16px 60px;}
+  main.wide{max-width:960px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .card{
+    background:#fff; border:1px solid var(--BO); border-radius:10px;
+    padding:18px; margin-bottom:14px;
+  }
+  .home-btn{
+    display:flex; align-items:center; gap:14px; width:100%;
+    background:#fff; border:1px solid var(--BO); border-radius:10px;
+    padding:18px; margin-bottom:14px; cursor:pointer; text-align:left;
+    font-size:16px; font-weight:600; color:var(--N);
+  }
+  .home-btn .ico{
+    width:42px; height:42px; border-radius:8px; display:flex; align-items:center;
+    justify-content:center; font-size:20px; color:#fff; flex-shrink:0;
+  }
+  .home-btn small{display:block; font-weight:400; color:var(--GT); font-size:13px; margin-top:2px;}
+  .ico.alta{background:var(--G);}
+  .ico.baja{background:var(--R);}
+  .ico.listado{background:var(--B);}
+
+  label{display:block; font-size:13px; font-weight:600; margin:14px 0 5px; color:var(--N);}
+  input, select, textarea{
+    width:100%; padding:12px; font-size:16px; border:1px solid var(--BO);
+    border-radius:6px; background:#fff; font-family:inherit;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  .checks{display:flex; gap:18px; margin-top:6px;}
+  .checks label{display:flex; align-items:center; gap:7px; font-size:15px; font-weight:400; margin:0;}
+  .checks input{width:auto;}
+
+  button.primary{
+    width:100%; padding:14px; margin-top:20px; background:var(--R); color:#fff;
+    border:none; border-radius:6px; font-size:16px; font-weight:600; cursor:pointer;
+  }
+  button.secondary{
+    width:100%; padding:13px; margin-top:10px; background:#fff; color:var(--N);
+    border:1px solid var(--BO); border-radius:6px; font-size:15px; font-weight:600; cursor:pointer;
+  }
+  button.small{
+    padding:8px 12px; font-size:13px; border-radius:5px; border:1px solid var(--BO);
+    background:#fff; cursor:pointer; font-weight:600;
+  }
+  button.small.copy{color:var(--B); border-color:var(--B);}
+
+  .badge-estado{
+    display:inline-block; padding:3px 9px; border-radius:20px; font-size:12px; font-weight:700;
+  }
+  .badge-estado.Activo{background:rgba(29,158,117,.13); color:var(--G);}
+  .badge-estado.Inactivo{background:rgba(192,0,0,.1); color:var(--R);}
+  .badge-estado.Revisar{background:rgba(239,159,39,.15); color:var(--A);}
+
+  .linea-line{
+    font-family:"Courier New",monospace; background:#f0f1f3; border:1px solid var(--BO);
+    border-radius:6px; padding:10px 12px; font-size:14px; display:flex;
+    align-items:center; justify-content:space-between; gap:10px; margin-top:8px;
+  }
+
+  #buscador{margin-bottom:14px;}
+  .filtros{display:flex; gap:8px; margin-bottom:14px;}
+  .filtros select{flex:1;}
+
+  .chofer-item{
+    background:#fff; border:1px solid var(--BO); border-radius:8px; padding:14px; margin-bottom:10px;
+  }
+  .chofer-item .fila-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .chofer-item h3{margin:0 0 4px; font-size:15px;}
+  .chofer-item .meta{color:var(--GT); font-size:13px; margin-bottom:6px;}
+  .chofer-item .ids{font-size:13px; color:var(--N); margin-top:4px;}
+
+  table.tabla-choferes{width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden;}
+  table.tabla-choferes th{
+    background:var(--N); color:#fff; font-size:12px; text-align:left; padding:10px 8px;
+  }
+  table.tabla-choferes td{padding:9px 8px; border-bottom:1px solid var(--BO); font-size:13px; vertical-align:top;}
+
+  .lista-cards{display:block;}
+  .lista-tabla{display:none;}
+  @media (min-width:900px){
+    .lista-cards{display:none;}
+    .lista-tabla{display:block;}
+  }
+
+  #toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--N); color:#fff; padding:12px 20px; border-radius:8px;
+    font-size:14px; opacity:0; pointer-events:none; transition:opacity .25s;
+    z-index:100; max-width:90%; text-align:center;
+  }
+  #toast.show{opacity:1;}
+  #toast.err{background:var(--R);}
+  #toast.ok{background:var(--G);}
+
+  .empty{text-align:center; color:var(--GT); padding:30px 10px; font-size:14px;}
+  .loading{text-align:center; color:var(--GT); padding:30px 10px; font-size:14px;}
+  .hint{font-size:12px; color:var(--GT); margin-top:4px;}
+</style>
+</head>
+<body>
+
+<header>
+  <button id="btnVolver" onclick="goTo('inicio')">‹</button>
+  <span class="badge">GRIFFOULIERE</span>
+  <h1 id="tituloHeader">Altas y Bajas - Portones</h1>
+</header>
+
+<main id="main">
+
+  <!-- INICIO -->
+  <div class="view active" id="view-inicio">
+    <button class="home-btn" onclick="goTo('alta')">
+      <span class="ico alta">+</span>
+      <span>Nueva Alta<small>Cargar un chofer o personal nuevo en un porton</small></span>
+    </button>
+    <button class="home-btn" onclick="goTo('baja')">
+      <span class="ico baja">&minus;</span>
+      <span>Dar de Baja<small>Buscar y desactivar un chofer existente</small></span>
+    </button>
+    <button class="home-btn" onclick="goTo('listado')">
+      <span class="ico listado">≡</span>
+      <span>Ver Listado<small>Estado actual de Mendoza y Neuquen</small></span>
+    </button>
+  </div>
+
+  <!-- ALTA -->
+  <div class="view" id="view-alta">
+    <div class="card">
+      <label>Apellido *</label>
+      <input id="altaApellido" placeholder="Ej: Gonzalez">
+      <label>Nombre *</label>
+      <input id="altaNombre" placeholder="Ej: Juan Carlos">
+      <label>Legajo</label>
+      <input id="altaLegajo" placeholder="Opcional">
+      <label>Grupo</label>
+      <select id="altaGrupo">
+        <option value="Chofer">Chofer</option>
+        <option value="Supervision y Seguridad">Supervision y Seguridad</option>
+        <option value="Otro">Otro</option>
+      </select>
+      <label>Lugar de trabajo</label>
+      <select id="altaLugar">
+        <option value="MENDOZA">Mendoza</option>
+        <option value="NEUQUEN">Neuquen</option>
+        <option value="MALARGUE">Malargue</option>
+        <option value="OTRO">Otro</option>
+      </select>
+      <label>Telefono a cargar *</label>
+      <input id="altaTelefono" placeholder="Ej: 2614181333" inputmode="numeric">
+      <label>Telefono alternativo (opcional, por las dudas)</label>
+      <input id="altaTelefonoAlt" placeholder="Opcional" inputmode="numeric">
+      <label>Portones a habilitar *</label>
+      <div class="checks">
+        <label><input type="checkbox" id="altaMza"> Mendoza</label>
+        <label><input type="checkbox" id="altaNqn"> Neuquen</label>
+      </div>
+      <label>Observaciones</label>
+      <textarea id="altaObs" placeholder="Opcional"></textarea>
+      <label>Cargado por *</label>
+      <input id="altaUsuario" placeholder="Tu nombre">
+      <button class="primary" onclick="enviarAlta()">Dar de alta</button>
+    </div>
+    <div id="altaResultado"></div>
+  </div>
+
+  <!-- BAJA -->
+  <div class="view" id="view-baja">
+    <div class="card">
+      <label>Buscar chofer (apellido, nombre o telefono)</label>
+      <input id="bajaBuscar" placeholder="Ej: Gonzalez" oninput="buscarParaBaja(this.value)">
+    </div>
+    <div id="bajaResultados"></div>
+    <div id="bajaConfirmacion"></div>
+  </div>
+
+  <!-- LISTADO -->
+  <div class="view" id="view-listado">
+    <div class="filtros">
+      <select id="filtroPorton" onchange="cargarListado()">
+        <option value="TODOS">Todos los portones</option>
+        <option value="MENDOZA">Mendoza</option>
+        <option value="NEUQUEN">Neuquen</option>
+      </select>
+      <select id="filtroEstado" onchange="cargarListado()">
+        <option value="Activo">Activos</option>
+        <option value="Inactivo">Inactivos</option>
+        <option value="Todos">Todos</option>
+      </select>
+    </div>
+    <input id="listadoBuscar" placeholder="Filtrar por apellido o nombre..." oninput="renderListado()" style="margin-bottom:14px;">
+    <div id="listadoContenido"><div class="loading">Cargando...</div></div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIGURACION - pegar aca la URL /exec de tu deploy de Apps Script
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbxP6oIXbPf6pX2QA4WlBociewLwPx1O_UI3uEplqcH3AsunUKgt0Q9YxSysHy3bunu8/exec';
+
+let listadoCache = [];
+let numerosSms = { mza: '', nqn: '' };
+
+async function cargarConfiguracion() {
+  try {
+    const data = await apiGet({ action: 'contadores' });
+    numerosSms.mza = data.numeroSmsMza || '';
+    numerosSms.nqn = data.numeroSmsNqn || '';
+  } catch (err) {
+    console.warn('No se pudo leer Contadores', err);
+  }
+}
+cargarConfiguracion();
+
+// Abre la app de mensajes del celular con el numero y el texto ya cargados.
+// Un navegador no puede mandar el SMS solo por razones de seguridad del sistema operativo:
+// este es el maximo de automatizacion posible, el ultimo toque en "Enviar" lo hace la persona.
+function abrirSms(numero, texto) {
+  if (!numero) {
+    mostrarToast('Falta configurar el numero de SMS de ese porton en la pestaña Contadores', 'err');
+    return;
+  }
+  const url = 'sms:' + numero + '?&body=' + encodeURIComponent(texto);
+  window.location.href = url;
+}
+
+// ---------- navegacion SPA ----------
+function goTo(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + viewId).classList.add('active');
+  document.getElementById('btnVolver').style.display = viewId === 'inicio' ? 'none' : 'block';
+  const titulos = { inicio: 'Altas y Bajas - Portones', alta: 'Nueva Alta', baja: 'Dar de Baja', listado: 'Listado' };
+  document.getElementById('tituloHeader').textContent = titulos[viewId] || '';
+  document.getElementById('main').className = viewId === 'listado' ? 'wide' : '';
+  if (viewId === 'listado') cargarListado();
+  if (viewId === 'baja') {
+    document.getElementById('bajaBuscar').value = '';
+    document.getElementById('bajaResultados').innerHTML = '';
+    document.getElementById('bajaConfirmacion').innerHTML = '';
+  }
+  if (viewId === 'alta') {
+    document.getElementById('altaResultado').innerHTML = '';
+  }
+}
+
+// ---------- toast ----------
+function mostrarToast(msg, tipo) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (tipo || '');
+  setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// ---------- fetch helper (GET + URLSearchParams, nunca POST JSON) ----------
+async function apiGet(params) {
+  const usp = new URLSearchParams(params);
+  const res = await fetch(API_URL + '?' + usp.toString());
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error desconocido');
+  return data;
+}
+
+// ---------- copiar al portapapeles ----------
+function copiarTexto(texto, btn) {
+  navigator.clipboard.writeText(texto).then(() => {
+    mostrarToast('Copiado al portapapeles', 'ok');
+  }).catch(() => {
+    mostrarToast('No se pudo copiar, copialo a mano', 'err');
+  });
+}
+
+// ============================================================
+// ALTA
+// ============================================================
+async function enviarAlta() {
+  const apellido = document.getElementById('altaApellido').value.trim();
+  const nombre = document.getElementById('altaNombre').value.trim();
+  const telefono = document.getElementById('altaTelefono').value.trim();
+  const usuario = document.getElementById('altaUsuario').value.trim();
+  const portones = [];
+  if (document.getElementById('altaMza').checked) portones.push('Mendoza');
+  if (document.getElementById('altaNqn').checked) portones.push('Neuquen');
+
+  if (!apellido || !nombre || !telefono || !usuario) {
+    mostrarToast('Completa apellido, nombre, telefono y quien carga el alta', 'err');
+    return;
+  }
+  if (portones.length === 0) {
+    mostrarToast('Elegi al menos un porton', 'err');
+    return;
+  }
+
+  try {
+    const data = await apiGet({
+      action: 'alta',
+      apellido, nombre,
+      legajo: document.getElementById('altaLegajo').value.trim(),
+      grupo: document.getElementById('altaGrupo').value,
+      lugar: document.getElementById('altaLugar').value,
+      telefono,
+      telefonoAlt: document.getElementById('altaTelefonoAlt').value.trim(),
+      portones: portones.join(','),
+      observaciones: document.getElementById('altaObs').value.trim(),
+      usuario
+    });
+    mostrarResultadoAlta(data);
+    mostrarToast('Alta cargada correctamente', 'ok');
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+
+function mostrarResultadoAlta(data) {
+  const c = data.chofer;
+  let html = '<div class="card"><h3 style="margin-top:0">Listo, ' + c.apellido + ' ' + c.nombre + '</h3>';
+  html += '<p class="hint">Apreta "Enviar SMS": se abre tu app de mensajes con el numero y el texto ya cargados, ' +
+          'vos apretas Enviar ahi. Despues confirma aca para que quede registrado.</p>';
+  if (c.lineaMza) {
+    html += bloqueSms('Porton Mendoza (ID ' + c.idMza + ')', c.lineaMza, data.numeroSmsMza, c.uid, 'SMSAltaMza', c.smsAltaMza);
+  }
+  if (c.lineaNqn) {
+    html += bloqueSms('Porton Neuquen (ID ' + c.idNqn + ')', c.lineaNqn, data.numeroSmsNqn, c.uid, 'SMSAltaNqn', c.smsAltaNqn);
+  }
+  html += '</div>';
+  document.getElementById('altaResultado').innerHTML = html;
+  ['altaApellido','altaNombre','altaLegajo','altaTelefono','altaTelefonoAlt','altaObs'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('altaMza').checked = false;
+  document.getElementById('altaNqn').checked = false;
+}
+
+// Bloque reutilizable: linea + boton "Enviar SMS" (abre la app de mensajes) + boton "Copiar"
+// + confirmacion manual de que el SMS realmente se mando (para trazabilidad).
+function bloqueSms(titulo, linea, numero, uid, campoConfirmacion, confirmadoPrevio) {
+  const idConf = 'conf' + Math.random().toString(36).slice(2);
+  const confirmado = confirmadoPrevio ? confirmadoPrevio : '';
+  return `
+    <label style="margin-top:14px">${titulo}</label>
+    <div class="linea-line"><span>${linea}</span>
+      <button class="small copy" onclick="copiarTexto('${linea}')">Copiar</button>
+    </div>
+    <button class="secondary" style="margin-top:8px; border-color:var(--R); color:var(--R)"
+      onclick="abrirSms('${numero}', '${linea}')">Enviar SMS</button>
+    <div id="${idConf}" class="hint" style="margin-top:6px">
+      ${confirmado
+        ? 'SMS confirmado el ' + confirmado
+        : `<a href="#" onclick="confirmarEnvioSms('${uid}','${campoConfirmacion}','${idConf}'); return false;">Ya envie el SMS, marcar ✓</a>`}
+    </div>
+  `;
+}
+
+async function confirmarEnvioSms(uid, campo, idConf) {
+  try {
+    const data = await apiGet({ action: 'confirmarSms', uid, campo });
+    document.getElementById(idConf).textContent = 'SMS confirmado el ' + data.confirmado;
+    mostrarToast('Confirmado', 'ok');
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+
+// ============================================================
+// BAJA
+// ============================================================
+let bajaTimeout = null;
+function buscarParaBaja(q) {
+  clearTimeout(bajaTimeout);
+  document.getElementById('bajaConfirmacion').innerHTML = '';
+  if (!q || q.trim().length < 2) {
+    document.getElementById('bajaResultados').innerHTML = '';
+    return;
+  }
+  bajaTimeout = setTimeout(async () => {
+    try {
+      const data = await apiGet({ action: 'buscar', q: q.trim() });
+      renderResultadosBaja(data.choferes);
+    } catch (err) {
+      mostrarToast('Error buscando: ' + err.message, 'err');
+    }
+  }, 350);
+}
+
+function renderResultadosBaja(choferes) {
+  const cont = document.getElementById('bajaResultados');
+  const activos = choferes.filter(c => c.estado === 'Activo');
+  if (activos.length === 0) {
+    cont.innerHTML = '<div class="empty">No se encontraron choferes activos con ese dato.</div>';
+    return;
+  }
+  cont.innerHTML = activos.map(c => `
+    <div class="chofer-item">
+      <div class="fila-top">
+        <div>
+          <h3>${c.apellido}, ${c.nombre}</h3>
+          <div class="meta">${c.lugarTrabajo} &middot; Tel. ${c.telVigente} &middot; ${c.portonesHabilitados.replace(';', ' / ')}</div>
+          <div class="ids">${c.idMza ? 'ID Mendoza: ' + c.idMza + ' &middot; ' : ''}${c.idNqn ? 'ID Neuquen: ' + c.idNqn : ''}</div>
+        </div>
+        <button class="small" style="border-color:var(--R); color:var(--R)" onclick='confirmarBaja(${JSON.stringify(c)})'>Dar de baja</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function confirmarBaja(c) {
+  const cont = document.getElementById('bajaConfirmacion');
+  cont.innerHTML = `
+    <div class="card">
+      <h3 style="margin-top:0">Confirmar baja de ${c.apellido}, ${c.nombre}</h3>
+      <label>Motivo (opcional)</label>
+      <textarea id="bajaMotivo" placeholder="Ej: fin de contrato, cambio de base, etc."></textarea>
+      <button class="primary" onclick='ejecutarBaja("${c.uid}")'>Confirmar baja</button>
+      <button class="secondary" onclick='document.getElementById("bajaConfirmacion").innerHTML=""'>Cancelar</button>
+    </div>
+  `;
+}
+
+async function ejecutarBaja(uid) {
+  const motivo = document.getElementById('bajaMotivo').value.trim();
+  try {
+    const data = await apiGet({ action: 'baja', uid, motivo });
+    let html = '<div class="card"><h3 style="margin-top:0">Baja registrada: ' + data.apellido + ', ' + data.nombre + '</h3>';
+    if (data.instruccionMza) {
+      html += data.esSmsMza
+        ? bloqueSms('Porton Mendoza', data.instruccionMza, data.numeroSmsMza, data.uid, 'SMSBajaMza', '')
+        : '<label style="margin-top:14px">Porton Mendoza</label><div class="linea-line"><span>' + data.instruccionMza + '</span></div>';
+    }
+    if (data.instruccionNqn) {
+      html += data.esSmsNqn
+        ? bloqueSms('Porton Neuquen', data.instruccionNqn, data.numeroSmsNqn, data.uid, 'SMSBajaNqn', '')
+        : '<label style="margin-top:14px">Porton Neuquen</label><div class="linea-line"><span>' + data.instruccionNqn + '</span></div>';
+    }
+    html += '</div>';
+    document.getElementById('bajaConfirmacion').innerHTML = html;
+    document.getElementById('bajaResultados').innerHTML = '';
+    document.getElementById('bajaBuscar').value = '';
+    mostrarToast('Baja registrada', 'ok');
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+
+// ============================================================
+// LISTADO
+// ============================================================
+async function cargarListado() {
+  document.getElementById('listadoContenido').innerHTML = '<div class="loading">Cargando...</div>';
+  try {
+    const porton = document.getElementById('filtroPorton').value;
+    const estado = document.getElementById('filtroEstado').value;
+    const data = await apiGet({ action: 'listar', porton, estado });
+    listadoCache = data.choferes;
+    renderListado();
+  } catch (err) {
+    document.getElementById('listadoContenido').innerHTML = '<div class="empty">Error: ' + err.message + '</div>';
+  }
+}
+
+function buscarEnCache(uid) {
+  return listadoCache.find(c => c.uid === uid);
+}
+
+// Bloque de estado por porton dentro de una tarjeta del listado:
+// - si ya esta cargado en el equipo -> linea compacta verde, sin botones.
+// - si todavia dice "cargar" (pendiente) -> boton grande "Dar de Alta" (arma y abre el SMS).
+function bloquePortonListado(c, sufijo, nombrePorton, numero) {
+  const linea = sufijo === 'Mza' ? c.lineaMza : c.lineaNqn;
+  const id = sufijo === 'Mza' ? c.idMza : c.idNqn;
+  const aplicado = sufijo === 'Mza' ? c.aplicadoMza : c.aplicadoNqn;
+  const smsFecha = sufijo === 'Mza' ? c.smsAltaMza : c.smsAltaNqn;
+  if (!linea) return '';
+
+  if (aplicado === 'Si') {
+    return `<div class="linea-line" style="background:rgba(29,158,117,.08); border-color:rgba(29,158,117,.3)">
+      <span>${nombrePorton} (ID ${id}) &middot; <strong style="color:var(--G)">Cargado</strong></span>
+      <button class="small copy" onclick="copiarTexto('${linea}')">Copiar</button>
+    </div>`;
+  }
+
+  const idConf = 'conf' + sufijo + c.uid.replace(/[^a-zA-Z0-9]/g, '');
+  return `
+    <label style="margin-top:14px">${nombrePorton} (ID ${id}) &middot; <span style="color:var(--A)">pendiente de cargar</span></label>
+    <div class="linea-line"><span>${linea}</span>
+      <button class="small copy" onclick="copiarTexto('${linea}')">Copiar</button>
+    </div>
+    <button class="secondary" style="margin-top:8px; border-color:var(--G); color:var(--G)"
+      onclick="darDeAltaListado('${c.uid}','SMS${sufijo === 'Mza' ? 'AltaMza' : 'AltaNqn'}','${numero}','${linea}','${idConf}')">Dar de Alta (enviar SMS)</button>
+    <div id="${idConf}" class="hint" style="margin-top:6px">
+      ${smsFecha ? 'SMS confirmado el ' + smsFecha : ''}
+    </div>
+  `;
+}
+
+// Abre el SMS y deja el link de confirmacion, igual que bloqueSms, pero ademas
+// al confirmar actualiza el cache local y vuelve a pintar el listado.
+function darDeAltaListado(uid, campo, numero, linea, idConf) {
+  abrirSms(numero, linea);
+  document.getElementById(idConf).innerHTML =
+    `<a href="#" onclick="confirmarAltaListado('${uid}','${campo}'); return false;">Ya envie el SMS, marcar ✓</a>`;
+}
+
+async function confirmarAltaListado(uid, campo) {
+  try {
+    const data = await apiGet({ action: 'confirmarSms', uid, campo });
+    const c = buscarEnCache(uid);
+    if (c) {
+      if (campo === 'SMSAltaMza') { c.aplicadoMza = 'Si'; c.smsAltaMza = data.confirmado; }
+      if (campo === 'SMSAltaNqn') { c.aplicadoNqn = 'Si'; c.smsAltaNqn = data.confirmado; }
+    }
+    mostrarToast('Alta confirmada', 'ok');
+    renderListado();
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+
+// ---- Baja desde el listado, con confirmacion obligatoria (por si se aprieta sin querer) ----
+function pedirBajaListado(uid) {
+  const c = buscarEnCache(uid);
+  if (c) c._confirmBaja = true;
+  renderListado();
+}
+
+function cancelarBajaListado(uid) {
+  const c = buscarEnCache(uid);
+  if (c) c._confirmBaja = false;
+  renderListado();
+}
+
+async function confirmarBajaListado(uid) {
+  const motivoEl = document.getElementById('motivoListado-' + uid);
+  const motivo = motivoEl ? motivoEl.value.trim() : '';
+  try {
+    const data = await apiGet({ action: 'baja', uid, motivo });
+    const c = buscarEnCache(uid);
+    if (c) {
+      c._confirmBaja = false;
+      c.estado = 'Inactivo';
+      c._bajaResultado = data;
+    }
+    mostrarToast('Baja registrada', 'ok');
+    renderListado();
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+
+async function confirmarEnvioBajaListado(uid, campo, idConf) {
+  try {
+    const data = await apiGet({ action: 'confirmarSms', uid, campo });
+    const c = buscarEnCache(uid);
+    if (c) {
+      if (campo === 'SMSBajaMza') c.aplicadoMza = 'No';
+      if (campo === 'SMSBajaNqn') c.aplicadoNqn = 'No';
+    }
+    document.getElementById(idConf).textContent = 'SMS confirmado el ' + data.confirmado;
+    mostrarToast('Confirmado', 'ok');
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+
+// Tarjeta completa de un chofer en el listado (mobile)
+function renderCardListado(c) {
+  let html = `<div class="chofer-item" id="card-${c.uid}">
+    <div class="fila-top">
+      <div>
+        <h3>${c.apellido}, ${c.nombre}</h3>
+        <div class="meta">${c.lugarTrabajo} &middot; ${c.grupo}</div>
+      </div>
+      <span class="badge-estado ${c.estado}">${c.estado}</span>
+    </div>`;
+
+  html += bloquePortonListado(c, 'Mza', 'Mendoza', numerosSms.mza);
+  html += bloquePortonListado(c, 'Nqn', 'Neuquen', numerosSms.nqn);
+
+  if (c.estado === 'Activo') {
+    if (c._confirmBaja) {
+      html += `
+        <div class="card" style="margin-top:12px; background:#fff7f7; border-color:var(--R)">
+          <strong>¿Confirmas dar de baja a ${c.apellido}, ${c.nombre}?</strong>
+          <label>Motivo (opcional)</label>
+          <textarea id="motivoListado-${c.uid}" placeholder="Ej: fin de contrato"></textarea>
+          <button class="primary" style="background:var(--R)" onclick="confirmarBajaListado('${c.uid}')">Si, dar de baja</button>
+          <button class="secondary" onclick="cancelarBajaListado('${c.uid}')">Cancelar</button>
+        </div>`;
+    } else if (!c._bajaResultado) {
+      html += `<button class="small" style="margin-top:12px; border-color:var(--R); color:var(--R)"
+        onclick="pedirBajaListado('${c.uid}')">Dar de baja</button>`;
+    }
+  }
+
+  if (c._bajaResultado) {
+    const d = c._bajaResultado;
+    html += '<div class="card" style="margin-top:12px; background:#f7f9fb"><strong>Baja registrada</strong>';
+    if (d.instruccionMza) {
+      html += d.esSmsMza
+        ? bloqueSms('Porton Mendoza', d.instruccionMza, d.numeroSmsMza, c.uid, 'SMSBajaMza', '')
+        : '<label style="margin-top:10px">Porton Mendoza</label><div class="linea-line"><span>' + d.instruccionMza + '</span></div>';
+    }
+    if (d.instruccionNqn) {
+      html += d.esSmsNqn
+        ? bloqueSms('Porton Neuquen', d.instruccionNqn, d.numeroSmsNqn, c.uid, 'SMSBajaNqn', '')
+        : '<label style="margin-top:10px">Porton Neuquen</label><div class="linea-line"><span>' + d.instruccionNqn + '</span></div>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderListado() {
+  const q = (document.getElementById('listadoBuscar').value || '').toLowerCase();
+  const filtrados = listadoCache.filter(c =>
+    !q || (c.apellido + ' ' + c.nombre).toLowerCase().indexOf(q) !== -1
+  );
+  const cont = document.getElementById('listadoContenido');
+  if (filtrados.length === 0) {
+    cont.innerHTML = '<div class="empty">Sin resultados.</div>';
+    return;
+  }
+
+  const cards = filtrados.map(renderCardListado).join('');
+
+  const filas = filtrados.map(c => `
+    <tr>
+      <td>${c.apellido}</td><td>${c.nombre}</td><td>${c.lugarTrabajo}</td>
+      <td>${c.idMza || '-'}${c.idMza ? (c.aplicadoMza === 'Si' ? ' ✓' : ' (pend.)') : ''}</td>
+      <td>${c.idNqn || '-'}${c.idNqn ? (c.aplicadoNqn === 'Si' ? ' ✓' : ' (pend.)') : ''}</td>
+      <td>${c.telVigente}</td>
+      <td><span class="badge-estado ${c.estado}">${c.estado}</span></td>
+      <td style="white-space:nowrap">
+        ${c.lineaMza && c.aplicadoMza !== 'Si' ? '<button class="small" style="border-color:var(--G);color:var(--G)" onclick="darDeAltaListadoTabla(\'' + c.uid + '\',\'SMSAltaMza\',\'' + numerosSms.mza + '\',\'' + c.lineaMza + '\')" title="Dar de alta Mendoza">Alta MZA</button>' : ''}
+        ${c.lineaNqn && c.aplicadoNqn !== 'Si' ? '<button class="small" style="border-color:var(--G);color:var(--G)" onclick="darDeAltaListadoTabla(\'' + c.uid + '\',\'SMSAltaNqn\',\'' + numerosSms.nqn + '\',\'' + c.lineaNqn + '\')" title="Dar de alta Neuquen">Alta NQN</button>' : ''}
+        ${c.estado === 'Activo' ? '<button class="small" style="border-color:var(--R);color:var(--R)" onclick="bajaListadoTabla(\'' + c.uid + '\',\'' + (c.apellido + ', ' + c.nombre).replace(/'/g, "\\'") + '\')">Dar de baja</button>' : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML =
+    '<div class="lista-cards">' + cards + '</div>' +
+    '<div class="lista-tabla"><table class="tabla-choferes"><thead><tr>' +
+    '<th>Apellido</th><th>Nombre</th><th>Lugar</th><th>ID MZA</th><th>ID NQN</th><th>Telefono</th><th>Estado</th><th>Acciones</th>' +
+    '</tr></thead><tbody>' + filas + '</tbody></table></div>';
+}
+
+// Version tabla (desktop): confirmacion nativa del navegador para no exigir tanto espacio.
+function darDeAltaListadoTabla(uid, campo, numero, linea) {
+  abrirSms(numero, linea);
+  setTimeout(() => {
+    if (confirm('¿Confirmas que enviaste el SMS de alta?')) {
+      confirmarAltaListado(uid, campo);
+    }
+  }, 300);
+}
+
+function bajaListadoTabla(uid, nombreCompleto) {
+  if (!confirm('¿Confirmas dar de baja a ' + nombreCompleto + '? Esta accion desactiva sus portones.')) return;
+  confirmarBajaListadoDirecta(uid);
+}
+
+async function confirmarBajaListadoDirecta(uid) {
+  try {
+    const data = await apiGet({ action: 'baja', uid, motivo: '' });
+    const c = buscarEnCache(uid);
+    if (c) { c.estado = 'Inactivo'; c._bajaResultado = data; }
+    mostrarToast('Baja registrada', 'ok');
+    renderListado();
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
+}
+</script>
+</body>
+</html>
