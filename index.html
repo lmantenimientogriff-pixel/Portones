@@ -667,7 +667,7 @@ function renderCardListado(c) {
     <div class="fila-top">
       <div>
         <h3>${c.apellido}, ${c.nombre}</h3>
-        <div class="meta">${c.lugarTrabajo} &middot; ${c.grupo}</div>
+        <div class="meta">${c.lugarTrabajo} &middot; ${c.grupo} &middot; Tel. ${c.telVigente || '(sin dato)'}</div>
       </div>
       <span class="badge-estado ${c.estado}">${c.estado}</span>
     </div>`;
@@ -685,9 +685,16 @@ function renderCardListado(c) {
           <button class="primary" style="background:var(--R)" onclick="confirmarBajaListado('${c.uid}')">Si, dar de baja</button>
           <button class="secondary" onclick="cancelarBajaListado('${c.uid}')">Cancelar</button>
         </div>`;
-    } else if (!c._bajaResultado) {
-      html += `<button class="small" style="margin-top:12px; border-color:var(--R); color:var(--R)"
-        onclick="pedirBajaListado('${c.uid}')">Dar de baja</button>`;
+    } else if (c._editando) {
+      html += formularioEditarTelefono(c);
+    } else if (!c._bajaResultado && !c._editResultado) {
+      html += `
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">
+          <button class="small" style="border-color:var(--B); color:var(--B)"
+            onclick="pedirEditarTelefono('${c.uid}')">Editar telefono</button>
+          <button class="small" style="border-color:var(--R); color:var(--R)"
+            onclick="pedirBajaListado('${c.uid}')">Dar de baja</button>
+        </div>`;
     }
   }
 
@@ -707,8 +714,153 @@ function renderCardListado(c) {
     html += '</div>';
   }
 
+  // Resultado de "Editar telefono": primero la baja del ID viejo, despues el
+  // alta del ID nuevo -- en ese orden, porque asi hay que mandar los SMS.
+  if (c._editResultado) {
+    const b = c._editResultado.baja;
+    const nc = c._editResultado.alta.chofer;
+    const na = c._editResultado.alta;
+    html += '<div class="card" style="margin-top:12px; background:#f5f9fd; border-color:var(--B)">' +
+            '<strong>Telefono corregido</strong>' +
+            '<p class="hint">Mandá primero la baja del numero viejo y recien despues el alta del numero nuevo, en ese orden.</p>';
+    if (b.instruccionMza) {
+      html += b.esSmsMza
+        ? bloqueSms('1) Baja Mendoza — numero viejo', b.instruccionMza, b.numeroSmsMza, b.uid, 'SMSBajaMza', '')
+        : '<label style="margin-top:10px">1) Baja Mendoza — numero viejo</label><div class="linea-line"><span>' + b.instruccionMza + '</span></div>';
+    }
+    if (b.instruccionNqn) {
+      html += b.esSmsNqn
+        ? bloqueSms('1) Baja Neuquen — numero viejo', b.instruccionNqn, b.numeroSmsNqn, b.uid, 'SMSBajaNqn', '')
+        : '<label style="margin-top:10px">1) Baja Neuquen — numero viejo</label><div class="linea-line"><span>' + b.instruccionNqn + '</span></div>';
+    }
+    if (nc.lineaMza) {
+      html += bloqueSms('2) Alta Mendoza — numero nuevo (ID ' + nc.idMza + ')', nc.lineaMza, na.numeroSmsMza, nc.uid, 'SMSAltaMza', nc.smsAltaMza);
+    }
+    if (nc.lineaNqn) {
+      html += bloqueSms('2) Alta Neuquen — numero nuevo (ID ' + nc.idNqn + ')', nc.lineaNqn, na.numeroSmsNqn, nc.uid, 'SMSAltaNqn', nc.smsAltaNqn);
+    }
+    html += '</div>';
+  }
+
   html += '</div>';
   return html;
+}
+
+// ---- Editar telefono: dar de baja el ID actual y dar de alta uno nuevo
+// con el telefono corregido (mismos datos personales). Reutiliza baja() y
+// alta() tal cual ya funcionan -- no hace falta un endpoint nuevo. ----
+
+function formularioEditarTelefono(c) {
+  return `
+    <div class="card" style="margin-top:12px; background:#f5f9fd; border-color:var(--B)">
+      <strong>Corregir telefono de ${c.apellido}, ${c.nombre}</strong>
+      <p class="hint">Esto da de baja el ID actual (${[c.idMza, c.idNqn].filter(Boolean).join(' / ')}) y carga
+        un ID nuevo con el telefono corregido en los mismos portones habilitados. El sistema arma los dos SMS
+        (baja del viejo, alta del nuevo) para que los mandes en ese orden.</p>
+      <label>Telefono correcto *</label>
+      <input id="editTel-${c.uid}" value="${c.telVigente || ''}" inputmode="numeric">
+      <label>Telefono alternativo</label>
+      <input id="editTelAlt-${c.uid}" value="${c.telWP || ''}" placeholder="Opcional" inputmode="numeric">
+      <label>Motivo (opcional)</label>
+      <textarea id="editMotivo-${c.uid}" placeholder="Ej: numero mal cargado, cambio de chip, etc."></textarea>
+      <label>Editado por *</label>
+      <input id="editUsuario-${c.uid}" placeholder="Tu nombre">
+      <button class="primary" id="btnEditar-${c.uid}" onclick="confirmarEditarTelefono('${c.uid}')">Confirmar correccion</button>
+      <button class="secondary" onclick="cancelarEditarTelefono('${c.uid}')">Cancelar</button>
+    </div>`;
+}
+
+function pedirEditarTelefono(uid) {
+  const c = buscarEnCache(uid);
+  if (c) c._editando = true;
+  renderListado();
+}
+
+function cancelarEditarTelefono(uid) {
+  const c = buscarEnCache(uid);
+  if (c) c._editando = false;
+  renderListado();
+}
+
+// Nucleo compartido: da de baja el registro actual y carga uno nuevo con el
+// telefono corregido. Lo usan tanto el formulario del celular (lee inputs
+// del DOM) como el flujo de escritorio (usa prompt()).
+async function ejecutarEdicionTelefono(uid, telefono, telefonoAlt, motivo, usuario) {
+  const c = buscarEnCache(uid);
+  if (!c) throw new Error('No se encontro el chofer en la lista cargada.');
+  if (!telefono) throw new Error('Falta el telefono correcto.');
+  if (!usuario) throw new Error('Falta indicar quien hace la correccion.');
+
+  const idsViejos = [c.idMza, c.idNqn].filter(Boolean).join('/');
+  const motivoTexto = 'Correccion de telefono' + (motivo ? ': ' + motivo : '') + ' (reemplazado por alta nueva)';
+
+  // 1) Baja del registro actual -- retira el/los ID viejo(s) de los portones.
+  const dataBaja = await apiGet({ action: 'baja', uid: c.uid, motivo: motivoTexto });
+
+  // 2) Alta nueva con los mismos datos personales y los mismos portones,
+  // pero telefono corregido -- el backend le asigna un ID nuevo solo.
+  const portones = (c.portonesHabilitados || '').split(';').filter(Boolean);
+  const dataAlta = await apiGet({
+    action: 'alta',
+    apellido: c.apellido,
+    nombre: c.nombre,
+    legajo: c.legajo || '',
+    grupo: c.grupo || 'Chofer',
+    lugar: c.lugarTrabajo || '',
+    telefono,
+    telefonoAlt: telefonoAlt || '',
+    portones: portones.join(','),
+    observaciones: (c.observaciones ? c.observaciones + ' | ' : '') +
+      'Reemplaza ID(s) anterior(es) ' + (idsViejos || '(sin ID previo)') + ' por correccion de telefono' + (motivo ? ': ' + motivo : ''),
+    usuario
+  });
+
+  c._editando = false;
+  c.estado = 'Inactivo';
+  c._editResultado = { baja: dataBaja, alta: dataAlta };
+  listadoCache.push(dataAlta.chofer);
+}
+
+async function confirmarEditarTelefono(uid) {
+  const btn = document.getElementById('btnEditar-' + uid);
+  if (btn.disabled) return;
+
+  const telefono = document.getElementById('editTel-' + uid).value.trim();
+  const telefonoAlt = document.getElementById('editTelAlt-' + uid).value.trim();
+  const motivo = document.getElementById('editMotivo-' + uid).value.trim();
+  const usuario = document.getElementById('editUsuario-' + uid).value.trim();
+
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Procesando...';
+
+  try {
+    await ejecutarEdicionTelefono(uid, telefono, telefonoAlt, motivo, usuario);
+    mostrarToast('Telefono corregido: mandá los dos SMS que quedaron listos (baja del viejo, alta del nuevo)', 'ok');
+    renderListado();
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+// Version escritorio (tabla): pide los datos con prompt() en vez de un
+// formulario, igual que ya hacen las acciones de la tabla para dar de baja.
+async function editarTelefonoTabla(uid, nombreCompleto) {
+  const telefono = prompt('Telefono correcto para ' + nombreCompleto + ':');
+  if (telefono === null || !telefono.trim()) return;
+  const usuario = prompt('¿Quien hace esta correccion?');
+  if (usuario === null || !usuario.trim()) return;
+  const motivo = prompt('Motivo (opcional):') || '';
+
+  try {
+    await ejecutarEdicionTelefono(uid, telefono.trim(), '', motivo.trim(), usuario.trim());
+    mostrarToast('Telefono corregido: revisa la tarjeta del chofer para mandar los dos SMS', 'ok');
+    renderListado();
+  } catch (err) {
+    mostrarToast('Error: ' + err.message, 'err');
+  }
 }
 
 function renderListado() {
@@ -734,6 +886,7 @@ function renderListado() {
       <td style="white-space:nowrap">
         ${c.lineaMza && c.aplicadoMza !== 'Si' ? '<button class="small" style="border-color:var(--G);color:var(--G)" onclick="darDeAltaListadoTabla(\'' + c.uid + '\',\'SMSAltaMza\',\'' + numerosSms.mza + '\',\'' + c.lineaMza + '\')" title="Dar de alta Mendoza">Alta MZA</button>' : ''}
         ${c.lineaNqn && c.aplicadoNqn !== 'Si' ? '<button class="small" style="border-color:var(--G);color:var(--G)" onclick="darDeAltaListadoTabla(\'' + c.uid + '\',\'SMSAltaNqn\',\'' + numerosSms.nqn + '\',\'' + c.lineaNqn + '\')" title="Dar de alta Neuquen">Alta NQN</button>' : ''}
+        ${c.estado === 'Activo' ? '<button class="small" style="border-color:var(--B);color:var(--B)" onclick="editarTelefonoTabla(\'' + c.uid + '\',\'' + (c.apellido + ', ' + c.nombre).replace(/'/g, "\\'") + '\')">Editar tel.</button>' : ''}
         ${c.estado === 'Activo' ? '<button class="small" style="border-color:var(--R);color:var(--R)" onclick="bajaListadoTabla(\'' + c.uid + '\',\'' + (c.apellido + ', ' + c.nombre).replace(/'/g, "\\'") + '\')">Dar de baja</button>' : ''}
       </td>
     </tr>
