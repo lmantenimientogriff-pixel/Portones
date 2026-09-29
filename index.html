@@ -256,10 +256,19 @@ async function cargarConfiguracion() {
 // la respuesta del servidor), porque el navegador solo deja abrir un enlace sms:
 // como continuacion directa de un toque del usuario; si se abre despues de un
 // await, muchos celulares lo bloquean en silencio.
+// Reemplaza "{ID}" (sin importar mayusculas/minusculas ni espacios adentro de las
+// llaves) por el id real. Si no encuentra el placeholder devuelve '' (no manda
+// un SMS con el texto roto) en vez de un texto con "{ID}" literal.
+function aplicarFormatoBaja(formato, id) {
+  if (!formato) return '';
+  const texto = formato.trim().replace(/\{\s*ID\s*\}/i, id);
+  return texto.indexOf('{') !== -1 ? '' : texto;
+}
+
 function lineasBajaCliente(c) {
   const out = { mza: '', nqn: '' };
-  if (c.idMza && formatosBaja.mza) out.mza = formatosBaja.mza.replace('{ID}', c.idMza);
-  if (c.idNqn && formatosBaja.nqn) out.nqn = formatosBaja.nqn.replace('{ID}', c.idNqn);
+  if (c.idMza) out.mza = aplicarFormatoBaja(formatosBaja.mza, c.idMza);
+  if (c.idNqn) out.nqn = aplicarFormatoBaja(formatosBaja.nqn, c.idNqn);
   return out;
 }
 
