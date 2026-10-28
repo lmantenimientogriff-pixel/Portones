@@ -145,6 +145,14 @@
 
   <!-- INICIO -->
   <div class="view active" id="view-inicio">
+    <div class="card" id="panelPendientes" style="display:none; border-color:var(--A); background:#fffaf0">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+        <h3 style="margin:0; font-size:15px">Pendientes de enviar SMS</h3>
+        <span class="badge-estado Revisar" id="pendientesCount">0</span>
+      </div>
+      <p class="hint" style="margin:-4px 0 10px">Ya estan cargados en el sistema, pero todavia no se les mando el SMS de alta al porton.</p>
+      <div id="pendientesLista"></div>
+    </div>
     <button class="home-btn" onclick="goTo('alta')">
       <span class="ico alta">+</span>
       <span>Nueva Alta<small>Cargar un chofer o personal nuevo en un porton</small></span>
@@ -286,7 +294,56 @@ function abrirSmsBajaSiCorresponde(c) {
   if (l.nqn && !l.mza) { abrirSms(numerosSms.nqn, l.nqn); return true; }
   return false;
 }
-cargarConfiguracion();
+cargarConfiguracion().then(cargarPendientesInicio);
+
+// ============================================================
+// PANEL "PENDIENTES DE ENVIAR SMS" (pantalla de Inicio)
+// ============================================================
+// Mismo criterio que bloquePortonListado: un chofer Activo con un ID
+// asignado en un porton pero cuyo "Aplicado" para ese porton todavia no
+// es "Si" esta pendiente de que alguien le mande el SMS de alta. Util
+// sobre todo para los choferes que carga solo el agente de correo de
+// RRHH (quedan en este estado hasta que Coco entra y manda el SMS).
+async function cargarPendientesInicio() {
+  const panel = document.getElementById('panelPendientes');
+  try {
+    const data = await apiGet({ action: 'listar', porton: 'TODOS', estado: 'Activo' });
+    const pendientes = [];
+    data.choferes.forEach(c => {
+      if (c.idMza && c.aplicadoMza !== 'Si') pendientes.push({ c, sufijo: 'Mza', nombrePorton: 'Mendoza', numero: numerosSms.mza, linea: c.lineaMza });
+      if (c.idNqn && c.aplicadoNqn !== 'Si') pendientes.push({ c, sufijo: 'Nqn', nombrePorton: 'Neuquen', numero: numerosSms.nqn, linea: c.lineaNqn });
+    });
+    pendientes.reverse(); // los cargados mas recientemente, primero
+
+    if (pendientes.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    document.getElementById('pendientesCount').textContent = pendientes.length;
+    document.getElementById('pendientesLista').innerHTML = pendientes.map(p => {
+      const campo = 'SMSAlta' + p.sufijo;
+      const id = p.sufijo === 'Mza' ? p.c.idMza : p.c.idNqn;
+      const idConf = 'pend' + p.sufijo + p.c.uid.replace(/[^a-zA-Z0-9]/g, '');
+      return `
+        <div class="chofer-item" style="margin-bottom:8px">
+          <div class="fila-top">
+            <div>
+              <h3 style="font-size:14px; margin-bottom:2px">${p.c.apellido}, ${p.c.nombre}</h3>
+              <div class="meta" style="margin-bottom:0">${p.nombrePorton} (ID ${id}) &middot; Tel. ${p.c.telVigente || '(sin dato)'}</div>
+            </div>
+          </div>
+          <button class="secondary" style="margin-top:8px; border-color:var(--G); color:var(--G)"
+            onclick="darDeAltaListado('${p.c.uid}','${campo}','${p.numero}','${p.linea}','${idConf}')">Dar de Alta (enviar SMS)</button>
+          <div id="${idConf}" class="hint" style="margin-top:6px"></div>
+        </div>`;
+    }).join('');
+    panel.style.display = 'block';
+  } catch (err) {
+    console.warn('No se pudo cargar el panel de pendientes', err);
+    panel.style.display = 'none';
+  }
+}
 
 // Abre la app de mensajes del celular con el numero y el texto ya cargados.
 // Un navegador no puede mandar el SMS solo por razones de seguridad del sistema operativo:
@@ -308,6 +365,7 @@ function goTo(viewId) {
   const titulos = { inicio: 'Altas y Bajas - Portones', alta: 'Nueva Alta', baja: 'Dar de Baja', listado: 'Listado' };
   document.getElementById('tituloHeader').textContent = titulos[viewId] || '';
   document.getElementById('main').className = viewId === 'listado' ? 'wide' : '';
+  if (viewId === 'inicio') cargarPendientesInicio();
   if (viewId === 'listado') cargarListado();
   if (viewId === 'baja') {
     document.getElementById('bajaBuscar').value = '';
@@ -398,6 +456,7 @@ async function enviarAlta() {
       data.duplicadoEvitado ? 'Este chofer ya se habia cargado hace instantes (se evito duplicarlo)' : 'Alta cargada correctamente',
       'ok'
     );
+    cargarPendientesInicio();
   } catch (err) {
     mostrarToast('Error: ' + err.message, 'err');
   } finally {
@@ -607,6 +666,7 @@ async function confirmarAltaListado(uid, campo) {
     }
     mostrarToast('Alta confirmada', 'ok');
     renderListado();
+    cargarPendientesInicio();
   } catch (err) {
     mostrarToast('Error: ' + err.message, 'err');
   }
@@ -838,6 +898,7 @@ async function confirmarEditarTelefono(uid) {
     await ejecutarEdicionTelefono(uid, telefono, telefonoAlt, motivo, usuario);
     mostrarToast('Telefono corregido: mandá los dos SMS que quedaron listos (baja del viejo, alta del nuevo)', 'ok');
     renderListado();
+    cargarPendientesInicio();
   } catch (err) {
     mostrarToast('Error: ' + err.message, 'err');
     btn.disabled = false;
@@ -858,6 +919,7 @@ async function editarTelefonoTabla(uid, nombreCompleto) {
     await ejecutarEdicionTelefono(uid, telefono.trim(), '', motivo.trim(), usuario.trim());
     mostrarToast('Telefono corregido: revisa la tarjeta del chofer para mandar los dos SMS', 'ok');
     renderListado();
+    cargarPendientesInicio();
   } catch (err) {
     mostrarToast('Error: ' + err.message, 'err');
   }
